@@ -1,8 +1,9 @@
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
+from langchain_openai import ChatOpenAI
 
 from ragkb.config import Settings
-from ragkb.llm import OllamaStatus, check_ollama
+from ragkb.llm import OllamaStatus, build_chat_model, check_ollama
 from ragkb.store import (
     collection_count,
     get_vectorstore,
@@ -55,6 +56,54 @@ def test_ollama_name_with_latest_tag(monkeypatch):
     )
     status = check_ollama(Settings())
     assert status.llm_available and status.embed_available
+
+
+class FakeOpenAIResponse:
+    def __init__(self, ids):
+        self._ids = ids
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return {"data": [{"id": i} for i in self._ids]}
+
+
+def openai_settings(**kwargs):
+    return Settings(
+        llm_provider="openai",
+        llm_base_url="http://127.0.0.1:3425/v1",
+        llm_api_key="test-key",
+        llm_model="workbuddy/deepseek-v4.1-flash",
+        **kwargs,
+    )
+
+
+def test_build_chat_model_for_online_provider():
+    assert isinstance(build_chat_model(openai_settings()), ChatOpenAI)
+
+
+def test_check_ollama_checks_online_model(monkeypatch):
+    def fake_get(url, timeout, headers=None):
+        if url.endswith("/api/tags"):
+            return FakeResponse(["bge-m3:latest"])
+        return FakeOpenAIResponse(["workbuddy/deepseek-v4.1-flash"])
+
+    monkeypatch.setattr("ragkb.llm.httpx.get", fake_get)
+    assert check_ollama(openai_settings()) == OllamaStatus(True, True, True)
+
+
+def test_check_ollama_online_model_missing(monkeypatch):
+    def fake_get(url, timeout, headers=None):
+        if url.endswith("/api/tags"):
+            return FakeResponse(["bge-m3:latest"])
+        return FakeOpenAIResponse(["some/other-model"])
+
+    monkeypatch.setattr("ragkb.llm.httpx.get", fake_get)
+    status = check_ollama(openai_settings())
+    assert status.ollama_ok is True
+    assert status.llm_available is False
+    assert status.embed_available is True
 
 
 def test_reset_preserves_collection_identity(tmp_path):

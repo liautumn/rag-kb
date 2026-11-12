@@ -47,6 +47,9 @@ def _env_path(name: str, default: str) -> Path:
 @dataclass(frozen=True)
 class Settings:
     ollama_base_url: str = "http://localhost:11434"
+    llm_provider: str = "ollama"
+    llm_base_url: str = ""
+    llm_api_key: str = ""
     llm_model: str = "qwen3-vl:8b"
     embed_model: str = "bge-m3"
     docs_dir: Path = Path("documents")
@@ -62,6 +65,10 @@ class Settings:
     request_timeout: float = 300.0
 
     def __post_init__(self) -> None:
+        if self.llm_provider not in {"ollama", "openai"}:
+            raise ValueError("LLM_PROVIDER 必须是 ollama 或 openai")
+        if self.llm_provider == "openai" and not self.llm_base_url:
+            raise ValueError("LLM_PROVIDER=openai 时必须设置 LLM_BASE_URL")
         if self.chunk_size <= 0:
             raise ValueError("CHUNK_SIZE 必须大于 0")
         if not 0 <= self.chunk_overlap < self.chunk_size:
@@ -85,6 +92,11 @@ class Settings:
             ollama_base_url=_env_str(
                 "OLLAMA_BASE_URL", "http://localhost:11434"
             ).rstrip("/"),
+            llm_provider=_env_str("LLM_PROVIDER", "ollama").strip().lower(),
+            llm_base_url=_env_str("LLM_BASE_URL", "").rstrip("/"),
+            llm_api_key=_env_str(
+                "LLM_API_KEY", _env_str("ANTHROPIC_AUTH_TOKEN", "")
+            ),
             llm_model=_env_str("LLM_MODEL", "qwen3-vl:8b"),
             embed_model=_env_str("EMBED_MODEL", "bge-m3"),
             docs_dir=_env_path("DOCS_DIR", "documents"),

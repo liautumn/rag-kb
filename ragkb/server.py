@@ -68,10 +68,14 @@ async def _ensure_ready(service: RagService) -> Settings:
             status_code=503, detail="无法连接 Ollama，请先运行 ollama serve"
         )
     if not status.llm_available:
-        raise HTTPException(
-            status_code=503,
-            detail=f"生成模型未安装，请执行 ollama pull {settings.llm_model}",
-        )
+        if settings.llm_provider == "openai":
+            detail = (
+                "在线生成模型不可用，请检查 LLM_BASE_URL、LLM_API_KEY "
+                f"和 LLM_MODEL（{settings.llm_model}）"
+            )
+        else:
+            detail = f"生成模型未安装，请执行 ollama pull {settings.llm_model}"
+        raise HTTPException(status_code=503, detail=detail)
     if not status.embed_available:
         raise HTTPException(
             status_code=503,
