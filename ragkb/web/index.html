@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>本地 RAG 知识库</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <header class="masthead">
+      <div>
+        <h1>本地 RAG 知识库</h1>
+        <p class="masthead__note">检索本机文档，用本地模型回答</p>
+      </div>
+      <div id="status" class="status" data-state="checking" aria-live="polite">
+        <span class="status__dot" aria-hidden="true"></span>
+        <span class="status__text">检查服务中</span>
+      </div>
+    </header>
+
+    <div id="banner" class="banner" role="alert" hidden></div>
+
+    <main id="messages" class="thread" aria-live="polite">
+      <section class="turn turn--assistant" data-empty="true">
+        <span class="turn__node" aria-hidden="true"></span>
+        <div class="turn__body">
+          <p class="turn__label">知识库</p>
+          <p class="turn__text">把文档放进 documents/ 并建立索引后，就可以从这里提问。回答会标注来源，方便你核对原文。</p>
+        </div>
+      </section>
+    </main>
+
+    <form id="ask-form" class="composer">
+      <label class="composer__label" for="question">你的问题</label>
+      <div class="composer__row">
+        <textarea id="question" name="question" rows="2" maxlength="2000"
+          placeholder="问一个与知识库相关的问题…" required></textarea>
+        <button id="send" type="submit">提问</button>
+      </div>
+      <p class="composer__hint">回答由本地模型生成，请结合来源核对。</p>
+    </form>
+  </div>
+</body>
+</html>
