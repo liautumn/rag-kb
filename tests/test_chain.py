@@ -68,13 +68,13 @@ def test_answer_returns_text_and_sources():
     assert result.sources == [SourceRef(1, "a.txt", None, "资料")]
 
 
-def test_retrieve_dedupes_same_source_and_page():
+def test_retrieve_keeps_all_chunks_for_context():
     docs = [
         Document(page_content="甲", metadata={"source": "a.pdf", "page": 1}),
         Document(page_content="乙", metadata={"source": "a.pdf", "page": 1}),
     ]
     service = make_service(docs=docs)
-    assert len(service.retrieve("问题")) == 1
+    assert [d.page_content for d in service.retrieve("问题")] == ["甲", "乙"]
 
 
 def test_extract_text_strips_think_tags():

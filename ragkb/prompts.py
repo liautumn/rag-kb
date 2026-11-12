@@ -1,6 +1,8 @@
 from langchain_core.documents import Document
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
+from ragkb.citations import source_indices
+
 SYSTEM_PROMPT = """你是企业知识库问答助手。请严格依据下面提供的资料回答问题。
 
 规则：
@@ -17,8 +19,9 @@ def build_context(documents: list[Document]) -> str:
     if not documents:
         return NO_CONTEXT_TEXT
 
+    indices = source_indices(documents)
     parts: list[str] = []
-    for index, document in enumerate(documents, start=1):
+    for index, document in zip(indices, documents):
         source = document.metadata.get("source") or "未知来源"
         page = document.metadata.get("page")
         header = f"[来源{index}] 文件：{source}"

@@ -4,6 +4,7 @@ from dataclasses import asdict
 from functools import lru_cache
 from pathlib import Path
 
+import httpx
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -59,9 +60,9 @@ def get_service() -> RagService:
     return RagService(settings, vectorstore, llm)
 
 
-def _ensure_ready(service: RagService) -> Settings:
+async def _ensure_ready(service: RagService) -> Settings:
     settings = get_settings()
-    status = check_ollama(settings)
+    status = await asyncio.to_thread(check_ollama, settings)
     if not status.ollama_ok:
         raise HTTPException(
             status_code=503, detail="无法连接 Ollama，请先运行 ollama serve"
@@ -76,7 +77,13 @@ def _ensure_ready(service: RagService) -> Settings:
             status_code=503,
             detail=f"嵌入模型未安装，请执行 ollama pull {settings.embed_model}",
         )
-    if service.count_chunks() == 0:
+    try:
+        chunks = await asyncio.to_thread(service.count_chunks)
+    except Exception as exc:  # noqa: BLE001 - 索引句柄失效时给出可操作提示
+        raise HTTPException(
+            status_code=503, detail="索引读取失败，请重启服务后重试"
+        ) from exc
+    if chunks == 0:
         raise HTTPException(status_code=400, detail=NO_INDEX_MESSAGE)
     return settings
 
@@ -92,13 +99,13 @@ def index() -> FileResponse:
 
 
 @app.get("/api/health", response_model=HealthResponse)
-def health(service: RagService = Depends(get_service)) -> HealthResponse:
+async def health(service: RagService = Depends(get_service)) -> HealthResponse:
     settings = get_settings()
-    status = check_ollama(settings)
+    status = await asyncio.to_thread(check_ollama, settings)
     try:
-        indexed_chunks = service.count_chunks()
+        indexed_chunks = await asyncio.to_thread(service.count_chunks)
     except Exception:  # noqa: BLE001 - 健康检查不应因索引异常而 500
-        indexed_chunks = 0
+        indexed_chunks = -1
     return HealthResponse(
         ollama_ok=status.ollama_ok,
         llm_model=settings.llm_model,
@@ -116,18 +123,19 @@ def health(service: RagService = Depends(get_service)) -> HealthResponse:
 
 
 @app.post("/api/ask", response_model=AskResponse)
-def ask(
+async def ask(
     request: AskRequest, service: RagService = Depends(get_service)
 ) -> AskResponse:
-    _ensure_ready(service)
+    settings = await _ensure_ready(service)
     question = request.question.strip()
     if not question:
         raise HTTPException(status_code=422, detail="问题不能为空")
     try:
-        result = service.answer(question)
-    except HTTPException:
-        raise
-    except TimeoutError as exc:
+        result = await asyncio.wait_for(
+            asyncio.to_thread(service.answer, question),
+            timeout=settings.request_timeout,
+        )
+    except (TimeoutError, httpx.TimeoutException) as exc:
         raise HTTPException(
             status_code=504, detail="模型响应超时，请稍后重试"
         ) from exc
@@ -143,7 +151,7 @@ def ask(
 async def ask_stream(
     request: AskRequest, service: RagService = Depends(get_service)
 ):
-    settings = _ensure_ready(service)
+    settings = await _ensure_ready(service)
     question = request.question.strip()
     if not question:
         raise HTTPException(status_code=422, detail="问题不能为空")
@@ -153,7 +161,7 @@ async def ask_stream(
             async with asyncio.timeout(settings.request_timeout):
                 async for event in service.astream_answer(question):
                     yield _sse(event["event"], event["data"])
-        except TimeoutError:
+        except (TimeoutError, httpx.TimeoutException):
             yield _sse("error", {"message": "模型响应超时，请稍后重试"})
         except Exception as exc:  # noqa: BLE001 - SSE 内异常转成 error 事件
             yield _sse("error", {"message": f"生成失败：{exc}"})

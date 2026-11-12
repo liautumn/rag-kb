@@ -30,5 +30,11 @@ def collection_count(vectorstore: Chroma) -> int:
 
 def reset_collection(settings: Settings, embeddings: Embeddings) -> None:
     vectorstore = get_vectorstore(settings, embeddings)
+    collection = getattr(vectorstore, "_collection", None)
+    if collection is not None:
+        ids = collection.get().get("ids", [])
+        if ids:
+            collection.delete(ids=ids)
+        return
     if collection_count(vectorstore) > 0:
         vectorstore.delete_collection()

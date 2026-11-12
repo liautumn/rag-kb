@@ -33,6 +33,13 @@ def _env_float(name: str, default: float) -> float:
         raise ValueError(f"{name} 必须是数字，当前值：{raw!r}") from exc
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _env_path(name: str, default: str) -> Path:
     return Path(_env_str(name, default))
 
@@ -51,6 +58,7 @@ class Settings:
     llm_temperature: float = 0.3
     llm_num_predict: int = 4096
     llm_num_ctx: int = 8192
+    llm_reasoning: bool = True
     request_timeout: float = 300.0
 
     def __post_init__(self) -> None:
@@ -88,6 +96,7 @@ class Settings:
             llm_temperature=_env_float("LLM_TEMPERATURE", 0.3),
             llm_num_predict=_env_int("LLM_NUM_PREDICT", 4096),
             llm_num_ctx=_env_int("LLM_NUM_CTX", 8192),
+            llm_reasoning=_env_bool("LLM_REASONING", True),
             request_timeout=_env_float("REQUEST_TIMEOUT", 300.0),
         )
 

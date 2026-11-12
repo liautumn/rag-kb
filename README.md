@@ -85,6 +85,7 @@ uvicorn ragkb.server:app --host 127.0.0.1 --port 8000
 | `LLM_TEMPERATURE` | `0.3` | 生成温度 |
 | `LLM_NUM_PREDICT` | `4096` | 最大输出 token |
 | `LLM_NUM_CTX` | `8192` | 上下文窗口 |
+| `LLM_REASONING` | `true` | 是否让模型输出思考内容（`qwen3-vl:8b` 需保持 `true`） |
 | `REQUEST_TIMEOUT` | `300` | 单次生成超时（秒） |
 
 ## HTTP 接口
@@ -113,7 +114,8 @@ curl -s -X POST http://127.0.0.1:8000/api/ask \
 
 ```bash
 ollama pull qwen3-vl:8b-instruct
-# 把 .env 中的 LLM_MODEL 改为 qwen3-vl:8b-instruct，重启服务
+# 把 .env 中的 LLM_MODEL 改为 qwen3-vl:8b-instruct
+# 并把 LLM_REASONING 改为 false，然后重启服务
 ```
 
 代码不需要改动。

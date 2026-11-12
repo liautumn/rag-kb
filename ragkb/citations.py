@@ -18,16 +18,30 @@ def _source_and_page(document: Document) -> tuple[str, int | None]:
     return source, page
 
 
+def _dedupe_key(document: Document) -> tuple[str, int | None, str]:
+    source, page = _source_and_page(document)
+    if page is not None:
+        return (source, page, "")
+    return (source, page, document.page_content)
+
+
 def dedupe_documents(documents: list[Document]) -> list[Document]:
-    seen: set[tuple[str, int | None]] = set()
+    seen: set[tuple[str, int | None, str]] = set()
     result: list[Document] = []
     for document in documents:
-        key = _source_and_page(document)
+        key = _dedupe_key(document)
         if key in seen:
             continue
         seen.add(key)
         result.append(document)
     return result
+
+
+def source_indices(documents: list[Document]) -> list[int]:
+    index_by_key: dict[tuple[str, int | None, str], int] = {}
+    for document in dedupe_documents(documents):
+        index_by_key[_dedupe_key(document)] = len(index_by_key) + 1
+    return [index_by_key[_dedupe_key(document)] for document in documents]
 
 
 def format_sources(

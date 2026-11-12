@@ -20,7 +20,7 @@ def build_chat_model(settings: Settings) -> ChatOllama:
         temperature=settings.llm_temperature,
         num_predict=settings.llm_num_predict,
         num_ctx=settings.llm_num_ctx,
-        reasoning=True,
+        reasoning=settings.llm_reasoning,
         client_kwargs={"timeout": settings.request_timeout},
         async_client_kwargs={"timeout": settings.request_timeout},
     )

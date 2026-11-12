@@ -22,6 +22,13 @@ def test_defaults(monkeypatch):
     assert s.retrieval_k == 4
     assert s.llm_num_predict == 4096
     assert s.request_timeout == 300.0
+    assert s.llm_reasoning is True
+
+
+def test_llm_reasoning_override(monkeypatch):
+    monkeypatch.setenv("LLM_REASONING", "false")
+    s = Settings.from_env(env_file=None)
+    assert s.llm_reasoning is False
 
 
 def test_env_override(monkeypatch):

@@ -1,3 +1,4 @@
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -89,7 +90,24 @@ def test_ask_ollama_down_returns_503(client, monkeypatch):
 def test_stream_event_order(client):
     resp = client.post("/api/ask/stream", json={"question": "问题"})
     assert resp.status_code == 200
-    text = resp.text
-    for event in ("status", "sources", "delta", "done"):
-        assert f"event: {event}" in text
-    assert "答案" in text
+    events = [
+        line.split(": ", 1)[1]
+        for line in resp.text.splitlines()
+        if line.startswith("event: ")
+    ]
+    assert events[0] == "status"
+    assert events[-1] == "done"
+    assert "sources" in events
+    assert events[events.index("sources") - 1] == "status"
+    assert "delta" in events
+
+
+def test_ask_read_timeout_returns_504(client):
+    class TimeoutService(FakeService):
+        def answer(self, question):
+            raise httpx.ReadTimeout("read timed out")
+
+    app.dependency_overrides[get_service] = lambda: TimeoutService()
+    resp = client.post("/api/ask", json={"question": "问题"})
+    assert resp.status_code == 504
+    assert "超时" in resp.json()["detail"]

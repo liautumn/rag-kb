@@ -57,7 +57,17 @@ def test_ollama_name_with_latest_tag(monkeypatch):
     assert status.llm_available and status.embed_available
 
 
-def test_ingest_count_and_reset(tmp_path):
+def test_reset_preserves_collection_identity(tmp_path):
+    settings = Settings(chroma_dir=tmp_path / "db", collection_name="test_kb")
+    embeddings = FakeEmbeddings()
+    docs = [Document(page_content="你好", metadata={"source": "a.txt", "page": None})]
+    ingest_documents(docs, settings, embeddings)
+    vs = get_vectorstore(settings, embeddings)
+    collection_id = vs._collection.id
+    reset_collection(settings, embeddings)
+    vs2 = get_vectorstore(settings, embeddings)
+    assert vs2._collection.id == collection_id
+    assert collection_count(vs2) == 0
     settings = Settings(chroma_dir=tmp_path / "db", collection_name="test_kb")
     embeddings = FakeEmbeddings()
     docs = [Document(page_content="你好", metadata={"source": "a.txt", "page": None})]

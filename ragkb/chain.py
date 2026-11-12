@@ -1,10 +1,11 @@
+import asyncio
 import re
 from collections.abc import AsyncIterator
 from dataclasses import asdict, dataclass
 
 from langchain_core.documents import Document
 
-from ragkb.citations import SourceRef, dedupe_documents, format_sources
+from ragkb.citations import SourceRef, format_sources
 from ragkb.config import Settings
 from ragkb.prompts import build_messages
 from ragkb.store import collection_count
@@ -50,10 +51,9 @@ class RagService:
         return collection_count(self.vectorstore)
 
     def retrieve(self, question: str) -> list[Document]:
-        documents = self.vectorstore.similarity_search(
+        return self.vectorstore.similarity_search(
             question, k=self.settings.retrieval_k
         )
-        return dedupe_documents(documents)
 
     def answer(self, question: str) -> RagAnswer:
         if self.count_chunks() == 0:
@@ -73,11 +73,12 @@ class RagService:
     async def astream_answer(self, question: str) -> AsyncIterator[dict]:
         yield {"event": "status", "data": {"stage": "retrieving"}}
 
-        if self.count_chunks() == 0:
+        count = await asyncio.to_thread(self.count_chunks)
+        if count == 0:
             yield {"event": "error", "data": {"message": NO_INDEX_MESSAGE}}
             return
 
-        documents = self.retrieve(question)
+        documents = await asyncio.to_thread(self.retrieve, question)
         if not documents:
             yield {"event": "error", "data": {"message": NO_ANSWER_MESSAGE}}
             return
